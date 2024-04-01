@@ -1,37 +1,42 @@
 <h1 align="center">telegram bot for tdl</h1>
 
 <p align="center">
-A telegram bot for downloading files via <a href="https://github.com/iyear/tdl">tdl</a>.
+📥 Telegram Downloader, but more than a downloader
 </p>
 
 <p align="center">
-English | <a href="README_zh.md">简体中文</a>
+<a href="README.md">English</a> | 简体中文
 </p>
 
 <p align="center">
 <img src="https://img.shields.io/github/license/1368129224/tgbot-for-tdl?style=flat-square" alt="">
 <img src="https://img.shields.io/github/v/release/1368129224/tgbot-for-tdl?color=red&amp;style=flat-square" alt="">
+<img src="https://img.shields.io/github/downloads/1368129224/tgbot-for-tdl/total?style=flat-square" alt="">
 </p>
 
-## Features
+> [!IMPORTANT]
+> 中文文档可能落后于英文文档，如果有问题请先查看英文文档。
+> 请使用英文发起新的 Issue, 以便于追踪和搜索
 
-- Download files to different paths according to the selected tag
+## 特性
 
-## TODO
+- 根据选择的标签将文件下载到不同路径
 
-- [ ] Change config via tgbot.
-- [ ] Support multiple message links in one message and downloads them simultaneously.
+## 计划
 
-## Known issues
+- [ ] 通过bot修改配置文件
+- [ ] 支持一条消息包含多条链接，解析并同时进行下载
 
-- Unable to do multiple downloads at the same time.
+## 已知问题
 
-## Thanks to
+- 无法同时下载多个文件
+
+## 感谢
 
 - [tdl](https://github.com/iyear/tdl): Telegram Downloader, but more than a downloader.
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot): This library provides a pure Python, asynchronous interface for the [Telegram Bot API](https://core.telegram.org/bots/api).
 - [tomlkit](https://github.com/python-poetry/tomlkit): Style-preserving TOML library for Python.
 
-## LICENSE
+## 协议
 
 AGPL-3.0 License

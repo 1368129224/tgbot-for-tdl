@@ -1,13 +1,13 @@
-import tomlkit
-import os
-import logging
-import subprocess
-import sys
 import re
-import asyncio
+import os
+import sys
 import math
+import asyncio
+import logging
 import logging.handlers
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Update
+import subprocess
+import tomlkit
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, \
                         CommandHandler, CallbackQueryHandler
 
@@ -43,7 +43,9 @@ formatter = logging.Formatter(
     datefmt="%m-%d %H:%M:%S"
 )
 
-file_handler = logging.handlers.RotatingFileHandler(filename='tdl_bot.log', maxBytes=1 * 1024 * 1024, backupCount=3, encoding='utf-8')
+file_handler = logging.handlers.RotatingFileHandler(
+    filename='tdl_bot.log',maxBytes=1 * 1024 * 1024, backupCount=3,
+    encoding='utf-8')
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 
@@ -52,12 +54,11 @@ logger.addHandler(file_handler)
 
 
 def get_config():
-    global g_config
     if not os.path.isfile(CFG_PATH):
         logger.info("Config file not found, generating default config.")
         generate_config()
         sys.exit()
-    with open(CFG_PATH, 'r') as f:
+    with open(CFG_PATH, 'r', encoding='utf-8') as f:
         config = tomlkit.loads(f.read())
     g_config["debug"] = config["debug"]
     g_config["bot_token"] = config["bot_token"]
@@ -67,7 +68,6 @@ def get_config():
     logger.debug(f"config: \n* debug: {g_config['debug']}\n* download_path: {g_config['download_path']}\n* proxy_url: {g_config['proxy_url']}\n* tags: {g_config['tags']}")
 
 def generate_config():
-    global g_config
     doc = tomlkit.document()
     doc.add(tomlkit.comment("*** TDL telegram bot ***"))
     doc.add(tomlkit.comment("TDL: https://github.com/iyear/tdl"))
@@ -84,10 +84,9 @@ def generate_config():
     doc.add(tomlkit.comment("proxy_url = \"socks5://user:pass@host:port\""))
     doc.add(tomlkit.nl())
     doc.add("tags", g_config["tags"])
-    with open(CFG_PATH, 'w') as f:
+    with open(CFG_PATH, 'w', encoding='utf-8') as f:
         tomlkit.dump(doc, f)
-    logger.info(
-        f"The default configuration {CFG_PATH} is generated.")
+    logger.info(f"The default configuration {CFG_PATH} is generated.")
     sys.exit()
 
 
@@ -109,7 +108,7 @@ class Keyborad():
 
     def button(self, text, callback_data):
         return InlineKeyboardButton(text=text, callback_data=f"{callback_data}#{self.msg_id}")
-    
+
     def get_keyboard(self):
         row = []
         page = []
@@ -155,7 +154,10 @@ class Downloader():
         logger.debug(f"self.keyboard: {self.keyboard}")
 
     async def tdl(self):
-        return subprocess.Popen(["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "--proxy", f"{self.proxy_url}", "-d", f"{self.base_path}"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        return subprocess.Popen(
+            ["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "--proxy", f"{self.proxy_url}",
+             "-d", f"{self.base_path}"],
+             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     async def download(self):
         if os.path.exists(self.base_path) is False:
@@ -165,7 +167,9 @@ class Downloader():
             except FileExistsError:
                 logger.debug(f"The directory {self.base_path} already exists.")
                 return (False, "create directory failed")
-        proc = await asyncio.create_subprocess_shell(f"/usr/local/bin/tdl dl -u {self.url} --proxy {self.proxy_url} -d {self.base_path}", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        proc = await asyncio.create_subprocess_shell(
+            f"/usr/local/bin/tdl dl -u {self.url} --proxy {self.proxy_url} -d {self.base_path}",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
         result = await asyncio.gather(proc.wait(), proc.stdout.read())
         output = result[1].decode()
         output = re.sub(RE_STR, '', output)
@@ -178,8 +182,10 @@ class Downloader():
 
 
 async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text=f"debug: {g_config['debug']}\ndownload_path: {g_config['download_path']}\nproxy_url: {g_config['proxy_url']}\ntags: {g_config['tags']}")
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"debug: {g_config['debug']}\ndownload_path: {g_config['download_path']}\n\
+        proxy_url: {g_config['proxy_url']}\ntags: {g_config['tags']}")
 
 async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg_id = str(update.message.message_id)
@@ -197,6 +203,9 @@ async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=downloader.url)
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.callback_query is None:
+        logger.error("update.callback_query is None.")
+        return
     query = update.callback_query
     choose_data = query.data.split("#")[0]
     msg_id = query.data.split("#")[1]

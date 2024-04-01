@@ -13,6 +13,8 @@ English | <a href="README_zh.md">简体中文</a>
 <img src="https://img.shields.io/github/v/release/1368129224/tgbot-for-tdl?color=red&amp;style=flat-square" alt="">
 </p>
 
+Read [document](https://github.com/1368129224/tgbot-for-tdl/wiki) to setup.
+
 ## Features
 
 - Download files to different paths according to the selected tag

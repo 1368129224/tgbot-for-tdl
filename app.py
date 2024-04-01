@@ -65,7 +65,12 @@ def get_config():
     g_config["download_path"] = config["download_path"]
     g_config["proxy_url"] = config["proxy_url"]
     g_config["tags"] = config["tags"]
-    logger.debug(f"config: \n* debug: {g_config['debug']}\n* download_path: {g_config['download_path']}\n* proxy_url: {g_config['proxy_url']}\n* tags: {g_config['tags']}")
+    logger.debug(
+        f"config: \n\
+          * debug: {g_config['debug']}\n\
+          * download_path: {g_config['download_path']}\n\
+          * proxy_url: {g_config['proxy_url']}\n\
+          * tags: {g_config['tags']}")
 
 def generate_config():
     doc = tomlkit.document()
@@ -95,7 +100,7 @@ class Keyborad():
         self.tags = tags
         self.msg_id = msg_id
         self.tags_len = len(tags)
-        self.is_single_page = True if self.tags_len <= KEYBOARD_MAX_ONE_PAGE_LEN else False
+        self.is_single_page = self.tags_len <= KEYBOARD_MAX_ONE_PAGE_LEN
         self.keyboard = []
         self.get_keyboard()
 
@@ -177,8 +182,7 @@ class Downloader():
         logger.debug(f"proc.returncode: {proc.returncode}, output: [{output}]")
         if proc.returncode != 0:
             return (False, output)
-        else:
-            return (True, output)
+        return (True, output)
 
 
 async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -197,7 +201,8 @@ async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if downloader.url.startswith("https://t.me/"):
         logger.debug(f"create downloader, msg_id: {msg_id}")
         context.user_data[msg_id] = downloader
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="select tag: ", reply_markup=reply_markup)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text="select tag: ", reply_markup=reply_markup)
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="URL check failed")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=downloader.url)
@@ -216,39 +221,37 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.answer()
         await query.edit_message_text(text=f"downloader not found, msg_id: {msg_id}")
         return
-    if choose_data == "cancel":
-        logger.info(f"download canceled: {downloader.url}")
-        await query.answer()
-        await query.edit_message_text(text=f"canceled")
-        return
-    elif choose_data == "prev":
-        if downloader.current_page == 0:
+    if choose_data in ["cancel", "prev", "next"]:
+        if choose_data == "cancel":
+            logger.info(f"download canceled: {downloader.url}")
             await query.answer()
-            return
-        else:
+            await query.edit_message_text(text="canceled")
+        elif choose_data == "prev":
+            if downloader.current_page == 0:
+                await query.answer()
+                return
             downloader.current_page -= 1
             reply_markup = InlineKeyboardMarkup(
                 downloader.keyboard[downloader.current_page])
             await query.answer()
             await query.edit_message_text(text="select tag:", reply_markup=reply_markup)
-            return
-    elif choose_data == "next":
-        if downloader.current_page == downloader.last_page:
-            await query.answer()
-            return
-        else:
+        elif choose_data == "next":
+            if downloader.current_page == downloader.last_page:
+                await query.answer()
+                return
             downloader.current_page += 1
             reply_markup = InlineKeyboardMarkup(
                 downloader.keyboard[downloader.current_page])
             await query.answer()
             await query.edit_message_text(text="select tag:", reply_markup=reply_markup)
-            return
+        return
     sub_path = "/" + choose_data
     full_path = g_config["download_path"] + sub_path
     downloader.base_path = full_path
     await query.answer()
     await query.edit_message_text(text=f"file will be download into: {full_path}")
-    logger.debug(f"download url: {downloader.url}, base_path: {full_path}, proxy_url: {downloader.proxy_url}")
+    logger.debug(
+        f"download url: {downloader.url}, path: {full_path}, proxy_url: {downloader.proxy_url}")
     result = await asyncio.gather(downloader.download())
     logger.debug(f"result:\n[{result}]")
     tmp_msg = result[0][1].replace("\n", '')
@@ -260,7 +263,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         msg = f"download succeed: \n{tmp_msg}"
         logger.info(f"download succeed: {tmp_msg}")
     logger.debug(f"reply msg:\n[{msg}]")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, reply_to_message_id=downloader.msg_id)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=msg, reply_to_message_id=downloader.msg_id)
 
 
 if __name__ == '__main__':

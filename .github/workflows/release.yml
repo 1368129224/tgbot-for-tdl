@@ -1,9 +1,7 @@
-name: Releases
+name: Release
 
 on:
   push:
-    branches:
-      - release
     tags:
       - "v*"
 
@@ -17,4 +15,5 @@ jobs:
       - uses: ncipollo/release-action@v1
         with:
           artifacts: "release.tar.gz"
+          generateReleaseNotes: true
           token: ${{ secrets.YOUR_GITHUB_TOKEN }}

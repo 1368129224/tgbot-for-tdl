@@ -215,7 +215,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     choose_data = query.data.split("#")[0]
     msg_id = query.data.split("#")[1]
     logger.debug(f"msg_id: {msg_id}, downloader obj: {context.user_data[msg_id]}")
-    downloader = context.user_data.pop(msg_id, None)
+    downloader = context.user_data.get(msg_id, None)
     if downloader is None:
         logger.error(f"downloader not found, msg_id: {msg_id}")
         await query.answer()
@@ -260,6 +260,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         msg = f"download failed: \n{tmp_msg}"
         logger.warning(f"download failed: {tmp_msg}")
     else:
+        context.user_data.pop(msg_id, None)
         msg = f"download succeed: \n{tmp_msg}"
         logger.info(f"download succeed: {tmp_msg}")
     logger.debug(f"reply msg:\n[{msg}]")

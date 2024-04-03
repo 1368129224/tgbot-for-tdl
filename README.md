@@ -15,6 +15,12 @@ English | <a href="README_zh.md">简体中文</a>
 
 Read [document](https://github.com/1368129224/tgbot-for-tdl/wiki) to setup.
 
+## Screenshot
+
+<figure style="display: flex; justify-content: space-between;">
+  <img src="img/screenrecord.gif" alt="Screenshot" width="886">
+</figure>
+
 ## Features
 
 - Download files to different paths according to the selected tag

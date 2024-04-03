@@ -16,5 +16,4 @@ jobs:
         with:
           generateReleaseNotes: "true"
           allowUpdates: "true"
-          bodyFile: "body.md"
           token: ${{ secrets.YOUR_GITHUB_TOKEN }}

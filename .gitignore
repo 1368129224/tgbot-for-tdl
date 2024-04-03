@@ -1,4 +1,5 @@
 .vscode/
+tdl_bot_config.toml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

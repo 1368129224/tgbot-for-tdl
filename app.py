@@ -180,10 +180,9 @@ class Downloader():
         output = re.sub(RE_STR, '', output)
         output = output.split('\n')[-2]
         logger.debug(f"proc.returncode: {proc.returncode}, output: [{output}]")
-        if proc.returncode != 0:
-            return (False, output)
-        return (True, output)
-
+        if "done!" in output:
+            return (True, output)
+        return (False, output)
 
 async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(

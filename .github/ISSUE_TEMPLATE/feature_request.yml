@@ -21,14 +21,6 @@ body:
       required: true
 
   - type: textarea
-    id: background
-    attributes:
-      label: Background
-      description: Describe the background problem or need that led to this feature request.
-    validations:
-      required: true
-
-  - type: textarea
     id: workarounds
     attributes:
       label: Workarounds

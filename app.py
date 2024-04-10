@@ -63,7 +63,7 @@ def get_config():
     g_config["debug"] = config["debug"]
     g_config["bot_token"] = config["bot_token"]
     g_config["download_path"] = config["download_path"]
-    g_config["proxy_url"] = config["proxy_url"]
+    g_config["proxy_url"] = config.get("proxy_url", None)
     g_config["tags"] = config["tags"]
     logger.debug(
         f"config: \n\
@@ -80,6 +80,9 @@ def generate_config():
     doc.add("debug", g_config["debug"])
     doc.add("bot_token", g_config["bot_token"])
     doc.add("download_path", g_config["download_path"])
+    doc.add(tomlkit.nl())
+    doc.add(tomlkit.comment("This proxy will be used for both telegram bot and tdl"))
+    doc.add(tomlkit.comment("If you don't need proxy, please remove the proxy_url keyword"))
     doc.add("proxy_url", g_config["proxy_url"])
     doc.add(tomlkit.nl())
     doc.add(tomlkit.comment(
@@ -159,10 +162,15 @@ class Downloader():
         logger.debug(f"self.keyboard: {self.keyboard}")
 
     async def tdl(self):
-        return subprocess.Popen(
-            ["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "--proxy", f"{self.proxy_url}",
-             "-d", f"{self.base_path}"],
-             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if self.proxy_url is not None:
+            return subprocess.Popen(
+                ["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "--proxy", f"{self.proxy_url}",
+                 "-d", f"{self.base_path}"],
+                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        else:
+            return subprocess.Popen(
+                ["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "-d", f"{self.base_path}"],
+                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     async def download(self):
         if os.path.exists(self.base_path) is False:
@@ -192,7 +200,8 @@ async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg_id = str(update.message.message_id)
-    downloader = Downloader(update.message.text, msg_id, g_config["proxy_url"])
+    downloader = Downloader(url=update.message.text, msg_id=msg_id,
+                            proxy_url=g_config.get("proxy_url", None))
     logger.info(f"msg_id: {msg_id} download: {downloader.url}")
 
     reply_markup = InlineKeyboardMarkup(
@@ -273,8 +282,11 @@ if __name__ == '__main__':
         logger.setLevel(logging.DEBUG)
     logger.info(f"logging level: {logger.getEffectiveLevel()}")
 
-    application = ApplicationBuilder().connect_timeout(3).token(g_config["bot_token"]).proxy(
-        g_config["proxy_url"]).get_updates_proxy(g_config["proxy_url"]).build()
+    if g_config["proxy_url"] is not None:
+        application = ApplicationBuilder().connect_timeout(3).token(g_config["bot_token"]).proxy(
+            g_config["proxy_url"]).get_updates_proxy(g_config["proxy_url"]).build()
+    else:
+        application = ApplicationBuilder().connect_timeout(3).token(g_config["bot_token"]).build()
 
     application.add_handler(CommandHandler("show_config", show_config))
     application.add_handler(MessageHandler(

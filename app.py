@@ -192,13 +192,16 @@ class Downloader():
             return (True, output)
         return (False, output)
 
-async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f"debug: {g_config['debug']}\ndownload_path: {g_config['download_path']}\n\
-        proxy_url: {g_config['proxy_url']}\ntags: {g_config['tags']}")
+        text=f"debug: {g_config.get('debug', None)}\ndownload_path: {g_config.get('download_path')}\nproxy_url: {g_config.get('proxy_url', None)}\ntags: {g_config.get('tags', None)}")
 
-async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+        text="""Supported command:\n/help to display help message.\n/show_config to display bot config.\n\nHow to use:\nSend message link to bot and select the tag,the download will be performed automatically.""")
+
+async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg_id = str(update.message.message_id)
     downloader = Downloader(url=update.message.text, msg_id=msg_id,
                             proxy_url=g_config.get("proxy_url", None))
@@ -288,6 +291,8 @@ if __name__ == '__main__':
     else:
         application = ApplicationBuilder().connect_timeout(3).token(g_config["bot_token"]).build()
 
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", start))
     application.add_handler(CommandHandler("show_config", show_config))
     application.add_handler(MessageHandler(
         filters.TEXT & (~filters.COMMAND), video_link, block=False))

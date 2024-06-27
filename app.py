@@ -5,6 +5,7 @@ import math
 import asyncio
 import logging
 import logging.handlers
+import socket
 import subprocess
 import tomlkit
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -20,6 +21,7 @@ KEYBOARD_MAX_ONE_PAGE_LEN = KEYBOARD_MAX_ROW_LEN * KEYBOARD_MAX_COL_LEN
 
 g_config = {
     "debug": "False",
+    "enable_ipv6": "False",
     "bot_token": "123456789:abcdefghijk",
     "download_path": "/path/to/save/download/media",
     "proxy_url": "httpx://USERNAME:PASSWORD@PROXY_HOST:PROXY_PORT",
@@ -61,6 +63,7 @@ def get_config():
     with open(CFG_PATH, 'r', encoding='utf-8') as f:
         config = tomlkit.loads(f.read())
     g_config["debug"] = config["debug"]
+    g_config["enable_ipv6"] = config["enable_ipv6"]
     g_config["bot_token"] = config["bot_token"]
     g_config["download_path"] = config["download_path"]
     g_config["proxy_url"] = config.get("proxy_url", None)
@@ -78,6 +81,7 @@ def generate_config():
     doc.add(tomlkit.comment("TDL: https://github.com/iyear/tdl"))
     doc.add(tomlkit.nl())
     doc.add("debug", g_config["debug"])
+    doc.add("enable_ipv6", g_config["False"])
     doc.add("bot_token", g_config["bot_token"])
     doc.add("download_path", g_config["download_path"])
     doc.add(tomlkit.nl())
@@ -283,6 +287,8 @@ if __name__ == '__main__':
     get_config()
     if g_config["debug"] == "True":
         logger.setLevel(logging.DEBUG)
+    if g_config["enable_ipv6"] == "False":
+        socket.AF_INET6 = False
     logger.info(f"logging level: {logger.getEffectiveLevel()}")
 
     if g_config["proxy_url"] is not None:

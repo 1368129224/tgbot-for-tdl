@@ -109,7 +109,9 @@ class Keyborad():
         self.tags_len = len(tags)
         self.is_single_page = self.tags_len <= KEYBOARD_MAX_ONE_PAGE_LEN
         self.keyboard = []
+        self.retry_btn = []
         self.get_keyboard()
+        self.get_retry_btn()
 
     def multiple_navigator(self):
         return [InlineKeyboardButton("prev", callback_data=f"prev#{str(self.msg_id)}"),
@@ -153,6 +155,13 @@ class Keyborad():
                     page.append(self.multiple_navigator())
                     self.keyboard.append(page)
 
+    def get_retry_btn(self):
+        page = []
+        page.append(self.button("retry", "retry"))
+        page.append(self.button("cancel", "cancel"))
+        self.retry_btn.append(page)
+        print(self.retry_btn)
+
 
 class Downloader():
     def __init__(self, url, msg_id, proxy_url, base_path="") -> None:
@@ -162,7 +171,9 @@ class Downloader():
         self.msg_id = msg_id
         self.proxy_url = proxy_url
         self.base_path = base_path
-        self.keyboard = Keyborad(g_config["tags"], self.msg_id).keyboard
+        self.keyboard = Keyborad(g_config["tags"], self.msg_id)
+        self.btn = self.keyboard.keyboard
+        self.retry_btn = self.keyboard.retry_btn
         logger.debug(f"self.keyboard: {self.keyboard}")
 
     async def tdl(self):
@@ -212,7 +223,7 @@ async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     logger.info(f"msg_id: {msg_id} download: {downloader.url}")
 
     reply_markup = InlineKeyboardMarkup(
-        downloader.keyboard[downloader.current_page])
+        downloader.btn[downloader.current_page])
     if downloader.url.startswith("https://t.me/"):
         logger.debug(f"create downloader, msg_id: {msg_id}")
         context.user_data[msg_id] = downloader
@@ -247,7 +258,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 return
             downloader.current_page -= 1
             reply_markup = InlineKeyboardMarkup(
-                downloader.keyboard[downloader.current_page])
+                downloader.btn[downloader.current_page])
             await query.answer()
             await query.edit_message_text(text="select tag:", reply_markup=reply_markup)
         elif choose_data == "next":
@@ -256,31 +267,38 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 return
             downloader.current_page += 1
             reply_markup = InlineKeyboardMarkup(
-                downloader.keyboard[downloader.current_page])
+                downloader.btn[downloader.current_page])
             await query.answer()
             await query.edit_message_text(text="select tag:", reply_markup=reply_markup)
         return
-    sub_path = "/" + choose_data
-    full_path = g_config["download_path"] + sub_path
-    downloader.base_path = full_path
+    if choose_data != "retry":
+        sub_path = "/" + choose_data
+        full_path = g_config["download_path"] + sub_path
+        downloader.base_path = full_path
     await query.answer()
-    await query.edit_message_text(text=f"file will be download into: {full_path}")
+    await query.edit_message_text(text=f"file will be download into: {downloader.base_path}")
+
     logger.debug(
-        f"download url: {downloader.url}, path: {full_path}, proxy_url: {downloader.proxy_url}")
+        f"download url: {downloader.url}, path: {downloader.base_path}, proxy_url: {downloader.proxy_url}")
+
     result = await asyncio.gather(downloader.download())
     logger.debug(f"result:\n[{result}]")
     tmp_msg = result[0][1].replace("\n", '')
     tmp_msg = re.sub(RE_STR, '', tmp_msg)
     if result[0][0] is False:
         msg = f"download failed: \n{tmp_msg}"
-        logger.warning(f"download failed: {tmp_msg}")
+        logger.warning(f"download failed: {tmp_msg}\nretry?")
+        logger.debug(f"reply msg:\n[{msg}]")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=msg, reply_to_message_id=downloader.msg_id,
+                reply_markup=InlineKeyboardMarkup(downloader.retry_btn))
     else:
         context.user_data.pop(msg_id, None)
         msg = f"download succeed: \n{tmp_msg}"
         logger.info(f"download succeed: {tmp_msg}")
-    logger.debug(f"reply msg:\n[{msg}]")
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=msg, reply_to_message_id=downloader.msg_id)
+        logger.debug(f"reply msg:\n[{msg}]")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=msg, reply_to_message_id=downloader.msg_id)
 
 
 if __name__ == '__main__':

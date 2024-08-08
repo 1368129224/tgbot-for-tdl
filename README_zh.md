@@ -23,11 +23,12 @@
 ## 特性
 
 - 根据选择的标签将文件下载到不同路径
+- 支持一条消息中包含多条待下载的消息链接，并单线程下载所有文件
 
 ## 计划
 
 - [ ] 通过bot修改配置文件
-- [ ] 支持一条消息包含多条链接，解析并同时进行下载
+- [x] 支持一条消息包含多条链接，解析并同时进行下载
 
 ## 已知问题
 
@@ -36,7 +37,7 @@
 ## 感谢
 
 - [tdl](https://github.com/iyear/tdl): Telegram Downloader, but more than a downloader.
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot): This library provides a pure Python, asynchronous interface for the [Telegram Bot API](https://core.telegram.org/bots/api).
+- [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/index.html): TeleBot is synchronous and asynchronous implementation of [Telegram Bot API](https://core.telegram.org/bots/api).
 - [tomlkit](https://github.com/python-poetry/tomlkit): Style-preserving TOML library for Python.
 
 ## 协议

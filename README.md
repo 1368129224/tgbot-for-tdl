@@ -23,12 +23,14 @@ Read [document](https://github.com/1368129224/tgbot-for-tdl/wiki) to setup.
 
 ## Features
 
-- Download files to different paths according to the selected tag
+- Download files to different paths according to the selected tag.
+- Supports multiple messages to be downloaded in one message and single-threaded download the files.
+
 
 ## TODO
 
 - [ ] Change config via tgbot.
-- [ ] Support multiple message links in one message and downloads them simultaneously.
+- [x] Support multiple message links in one message and downloads them simultaneously.
 
 ## Known issues
 
@@ -37,7 +39,7 @@ Read [document](https://github.com/1368129224/tgbot-for-tdl/wiki) to setup.
 ## Thanks to
 
 - [tdl](https://github.com/iyear/tdl): Telegram Downloader, but more than a downloader.
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot): This library provides a pure Python, asynchronous interface for the [Telegram Bot API](https://core.telegram.org/bots/api).
+- [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/index.html): TeleBot is synchronous and asynchronous implementation of [Telegram Bot API](https://core.telegram.org/bots/api).
 - [tomlkit](https://github.com/python-poetry/tomlkit): Style-preserving TOML library for Python.
 
 ## LICENSE

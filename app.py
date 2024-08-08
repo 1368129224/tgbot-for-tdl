@@ -1,16 +1,15 @@
-import re
 import os
+import re
 import sys
-import math
+import socket
 import asyncio
 import logging
 import logging.handlers
-import socket
-import subprocess
 import tomlkit
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, \
-                        CommandHandler, CallbackQueryHandler
+
+from telebot import asyncio_helper
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
+from telebot.async_telebot import AsyncTeleBot
 
 # global
 CFG_PATH = 'tdl_bot_config.toml'
@@ -28,17 +27,13 @@ g_config = {
     "tags": ['dog', 'cat']
 }
 
-
-# enable python-telegram-bot logging
 logging.basicConfig(
     style="{",
     format="{asctime} {levelname:<8} {funcName}:{lineno} {message}",
     datefmt="%m-%d %H:%M:%S",
-    level=logging.INFO
+    level=logging.DEBUG
 )
 
-# set higher logging level for httpx to avoid all GET and POST requests being logged
-logging.getLogger("httpx").setLevel(logging.WARNING)
 formatter = logging.Formatter(
     style="{",
     fmt="{asctime} {levelname:<8} {funcName}:{lineno} {message}",
@@ -54,7 +49,6 @@ file_handler.setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.addHandler(file_handler)
 
-
 def get_config():
     if not os.path.isfile(CFG_PATH):
         logger.info("Config file not found, generating default config.")
@@ -69,11 +63,12 @@ def get_config():
     g_config["proxy_url"] = config.get("proxy_url", None)
     g_config["tags"] = config["tags"]
     logger.debug(
-        f"config: \n\
-          * debug: {g_config['debug']}\n\
-          * download_path: {g_config['download_path']}\n\
-          * proxy_url: {g_config['proxy_url']}\n\
-          * tags: {g_config['tags']}")
+        f"""
+* debug: {g_config['debug']}
+* enable_ipv6: {g_config['enable_ipv6']}
+* download_path: {g_config['download_path']}
+* proxy_url: {g_config['proxy_url']}
+* tags: {g_config['tags']}""")
 
 def generate_config():
     doc = tomlkit.document()
@@ -81,7 +76,7 @@ def generate_config():
     doc.add(tomlkit.comment("TDL: https://github.com/iyear/tdl"))
     doc.add(tomlkit.nl())
     doc.add("debug", g_config["debug"])
-    doc.add("enable_ipv6", g_config["False"])
+    doc.add("enable_ipv6", g_config["enable_ipv6"])
     doc.add("bot_token", g_config["bot_token"])
     doc.add("download_path", g_config["download_path"])
     doc.add(tomlkit.nl())
@@ -102,206 +97,133 @@ def generate_config():
     sys.exit()
 
 
-class Keyborad():
-    def __init__(self, tags, msg_id) -> None:
-        self.tags = tags
-        self.msg_id = msg_id
-        self.tags_len = len(tags)
-        self.is_single_page = self.tags_len <= KEYBOARD_MAX_ONE_PAGE_LEN
-        self.keyboard = []
-        self.get_keyboard()
-
-    def multiple_navigator(self):
-        return [InlineKeyboardButton("prev", callback_data=f"prev#{str(self.msg_id)}"),
-                InlineKeyboardButton("cancel", callback_data=f"cancel#{str(self.msg_id)}"),
-                InlineKeyboardButton("next", callback_data=f"next#{str(self.msg_id)}")]
-    def single_navigator(self):
-        return [InlineKeyboardButton("cancel", callback_data=f"cancel#{str(self.msg_id)}")]
+class TagBtn():
+    def __init__(self, link):
+        self.tag_len = len(g_config["tags"])
+        self.link = link
+        self.retry_markup = None
 
     def button(self, text, callback_data):
-        return InlineKeyboardButton(text=text, callback_data=f"{callback_data}#{self.msg_id}")
+        return InlineKeyboardButton(text=text, callback_data=callback_data + "#" + self.link)
 
-    def get_keyboard(self):
+    def get_retry_btns(self):
+        markup = InlineKeyboardMarkup()
+        markup.row_width = 2
+        markup.add(self.button("retry", "retry"), self.button("cancel", "cancel"))
+        self.retry_markup = markup
+
+    def get_btns(self):
+        markup = InlineKeyboardMarkup()
+        markup.row_width = KEYBOARD_MAX_ROW_LEN
         row = []
-        page = []
-        if self.is_single_page:
-            for i in range(self.tags_len):
-                row.append(self.button(self.tags[i], self.tags[i]))
-                if len(row) == KEYBOARD_MAX_ROW_LEN:
-                    page.append(row)
-                    logger.debug(f"row: {row}, page: {page}")
-                    row = []
-                if i == self.tags_len - 1:
-                    page.append(row)
-                    logger.debug(f"page: {page}")
-                    page.append(self.single_navigator())
-                    self.keyboard.append(page)
-        else:
-            for i in range(self.tags_len):
-                row.append(self.button(self.tags[i], self.tags[i]))
-                if len(row) == KEYBOARD_MAX_ROW_LEN:
-                    page.append(row)
-                    logger.debug(f"row: {row}, page: {page}")
-                    row = []
-                if len(page) == KEYBOARD_MAX_COL_LEN:
-                    logger.debug(f"page: {page}")
-                    page.append(self.multiple_navigator())
-                    self.keyboard.append(page)
-                    page = []
-                if i == self.tags_len - 1:
-                    page.append(row)
-                    page.append(self.multiple_navigator())
-                    self.keyboard.append(page)
+
+        for i in range(self.tag_len):
+            row.append(self.button(g_config["tags"][i], g_config["tags"][i]))
+            if len(row) == KEYBOARD_MAX_ROW_LEN:
+                markup.add(*row)
+                row = []
+            if i == self.tag_len - 1:
+                markup.add(*row)
+                markup.add(self.button("cancel", "cancel"))
+
+        return markup
+
+class DownloadTask():
+    def __init__(self, link, tag):
+        self.link = link
+        self.tag = tag
+        self.path = g_config["download_path"] + "/" + self.tag
+        self.proxy_url = g_config["proxy_url"]
+
+class Worker():
+    lock = asyncio.Lock()
+
+    def __init__(self, task, msg):
+        self.task = task
+        self.msg = msg
+
+    async def call_tdl(self, bot):
+        async with Worker.lock:
+            proc = await asyncio.create_subprocess_shell(
+                f"/usr/local/bin/tdl --debug dl -u {self.task.link} --proxy {self.task.proxy_url} -d {self.task.path}",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+            i = 0
+            while True:
+                if not proc.stdout:
+                    logger.error(f'Call create_subprocess_shell() failed!')
+                    break
+                line = await proc.stdout.readline()
+                line = line.decode()
+                if line:
+                    i = i + 1
+                    if i == 10 or "done!" in line:
+                        i = 0
+                        line = re.sub(RE_STR, '', line)
+                        if "done!" in line:
+                            logger.info(f'Link: {self.task.link}')
+                            logger.info(f'Download {line.split("...")[-1].strip()}')
+                            await bot.edit_message_text(f'{self.task.link}\n Downlaod {line.split("...")[-1].strip()}', chat_id=self.msg.chat.id, message_id=self.msg.id)
+                        if not line.startswith("CPU") and not line.startswith("[") and not line.startswith("All") and line != '':
+                            process = line.split('...')[1].split()[0]
+                            speed = line.split("...")[-1].split(";")[-1].strip().rstrip("]")
+                            logger.debug(f'Downloading: {process + " " + speed}')
+                else:
+                    break
+            await proc.wait()
+            logger.info(f'Download returncode {proc.returncode}')
+        if proc.stderr:
+            line = await proc.stderr.readline()
+            line = line.decode()
+            if line:
+                logger.warning(f'Download stderr: {line}')
+        if proc.stdout:
+            line = await proc.stdout.readline()
+            line = line.decode()
+            if line:
+                logger.warning(f'Download stdout: {line}')
 
 
-class Downloader():
-    def __init__(self, url, msg_id, proxy_url, base_path="") -> None:
-        self.current_page = 0
-        self.last_page = math.ceil(len(g_config["tags"]) / KEYBOARD_MAX_ONE_PAGE_LEN)
-        self.url = url
-        self.msg_id = msg_id
-        self.proxy_url = proxy_url
-        self.base_path = base_path
-        self.keyboard = Keyborad(g_config["tags"], self.msg_id).keyboard
-        logger.debug(f"self.keyboard: {self.keyboard}")
-
-    async def tdl(self):
-        if self.proxy_url is not None:
-            return subprocess.Popen(
-                ["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "--proxy", f"{self.proxy_url}",
-                 "-d", f"{self.base_path}"],
-                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        else:
-            return subprocess.Popen(
-                ["/usr/local/bin/tdl", "dl", "-u", f"{self.url}", "-d", f"{self.base_path}"],
-                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-
-    async def download(self):
-        if os.path.exists(self.base_path) is False:
-            try:
-                os.mkdir(self.base_path)
-                logger.debug(f"The directory {self.base_path} has been created.")
-            except FileExistsError:
-                logger.debug(f"The directory {self.base_path} already exists.")
-                return (False, "create directory failed")
-        proc = await asyncio.create_subprocess_shell(
-            f"/usr/local/bin/tdl dl -u {self.url} --proxy {self.proxy_url} -d {self.base_path}",
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-        result = await asyncio.gather(proc.wait(), proc.stdout.read())
-        output = result[1].decode()
-        output = re.sub(RE_STR, '', output)
-        output = output.split('\n')[-2]
-        logger.debug(f"proc.returncode: {proc.returncode}, output: [{output}]")
-        if "done!" in output:
-            return (True, output)
-        return (False, output)
-
-async def show_config(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f"debug: {g_config.get('debug', None)}\ndownload_path: {g_config.get('download_path')}\nproxy_url: {g_config.get('proxy_url', None)}\ntags: {g_config.get('tags', None)}")
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-        text="""Supported command:\n/help to display help message.\n/show_config to display bot config.\n\nHow to use:\nSend message link to bot and select the tag,the download will be performed automatically.""")
-
-async def video_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    msg_id = str(update.message.message_id)
-    downloader = Downloader(url=update.message.text, msg_id=msg_id,
-                            proxy_url=g_config.get("proxy_url", None))
-    logger.info(f"msg_id: {msg_id} download: {downloader.url}")
-
-    reply_markup = InlineKeyboardMarkup(
-        downloader.keyboard[downloader.current_page])
-    if downloader.url.startswith("https://t.me/"):
-        logger.debug(f"create downloader, msg_id: {msg_id}")
-        context.user_data[msg_id] = downloader
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id, text="select tag: ", reply_markup=reply_markup)
-    else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="URL check failed")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=downloader.url)
-
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.callback_query is None:
-        logger.error("update.callback_query is None.")
-        return
-    query = update.callback_query
-    choose_data = query.data.split("#")[0]
-    msg_id = query.data.split("#")[1]
-    logger.debug(f"msg_id: {msg_id}, downloader obj: {context.user_data[msg_id]}")
-    downloader = context.user_data.get(msg_id, None)
-    if downloader is None:
-        logger.error(f"downloader not found, msg_id: {msg_id}")
-        await query.answer()
-        await query.edit_message_text(text=f"downloader not found, msg_id: {msg_id}")
-        return
-    if choose_data in ["cancel", "prev", "next"]:
-        if choose_data == "cancel":
-            logger.info(f"download canceled: {downloader.url}")
-            await query.answer()
-            await query.edit_message_text(text="canceled")
-        elif choose_data == "prev":
-            if downloader.current_page == 0:
-                await query.answer()
-                return
-            downloader.current_page -= 1
-            reply_markup = InlineKeyboardMarkup(
-                downloader.keyboard[downloader.current_page])
-            await query.answer()
-            await query.edit_message_text(text="select tag:", reply_markup=reply_markup)
-        elif choose_data == "next":
-            if downloader.current_page == downloader.last_page:
-                await query.answer()
-                return
-            downloader.current_page += 1
-            reply_markup = InlineKeyboardMarkup(
-                downloader.keyboard[downloader.current_page])
-            await query.answer()
-            await query.edit_message_text(text="select tag:", reply_markup=reply_markup)
-        return
-    sub_path = "/" + choose_data
-    full_path = g_config["download_path"] + sub_path
-    downloader.base_path = full_path
-    await query.answer()
-    await query.edit_message_text(text=f"file will be download into: {full_path}")
-    logger.debug(
-        f"download url: {downloader.url}, path: {full_path}, proxy_url: {downloader.proxy_url}")
-    result = await asyncio.gather(downloader.download())
-    logger.debug(f"result:\n[{result}]")
-    tmp_msg = result[0][1].replace("\n", '')
-    tmp_msg = re.sub(RE_STR, '', tmp_msg)
-    if result[0][0] is False:
-        msg = f"download failed: \n{tmp_msg}"
-        logger.warning(f"download failed: {tmp_msg}")
-    else:
-        context.user_data.pop(msg_id, None)
-        msg = f"download succeed: \n{tmp_msg}"
-        logger.info(f"download succeed: {tmp_msg}")
-    logger.debug(f"reply msg:\n[{msg}]")
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=msg, reply_to_message_id=downloader.msg_id)
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     get_config()
     if g_config["debug"] == "True":
         logger.setLevel(logging.DEBUG)
     if g_config["enable_ipv6"] == "False":
         socket.AF_INET6 = False
+    if g_config["proxy_url"] is not None:
+        asyncio_helper.proxy = g_config["proxy_url"]
     logger.info(f"logging level: {logger.getEffectiveLevel()}")
 
-    if g_config["proxy_url"] is not None:
-        application = ApplicationBuilder().connect_timeout(3).token(g_config["bot_token"]).proxy(
-            g_config["proxy_url"]).get_updates_proxy(g_config["proxy_url"]).build()
-    else:
-        application = ApplicationBuilder().connect_timeout(3).token(g_config["bot_token"]).build()
+    bot = AsyncTeleBot(g_config["bot_token"])
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", start))
-    application.add_handler(CommandHandler("show_config", show_config))
-    application.add_handler(MessageHandler(
-        filters.TEXT & (~filters.COMMAND), video_link, block=False))
-    application.add_handler(CallbackQueryHandler(button, block=False))
+    @bot.message_handler(commands=['help', 'start'])
+    async def start_help(message):
+        text = """Supported command:\n/help to display help message.\n/show_config to display bot config.\n\nHow to use:\nSend message link to bot and select the tag, the download will be performed automatically."""
+        await bot.reply_to(message, text)
+    
+    @bot.message_handler(commands=['show_config'])
+    async def show_config(message):
+        text = f"debug: {g_config.get('debug')}\nenable_ipv6: {g_config.get('enable_ipv6')}download_path: {g_config.get('download_path')}\nproxy_url: {g_config.get('proxy_url', None)}\ntags: {g_config.get('tags', None)}"
+        await bot.send_message(message.chat.id, text)
 
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    @bot.message_handler(func=lambda message: True)
+    async def split_links(message):
+        msgs = message.text.split()
+        for link in msgs:
+            if link.startswith("https://t.me/"):
+                btns = TagBtn(link)
+                msg = await bot.reply_to(message, text=f"{link}\nchoose tag: ", reply_markup=btns.get_btns())
+
+    @bot.callback_query_handler(func=lambda call: True)
+    async def callback_query(call):
+        cb, link = call.data.split("#")
+        if cb == "cancel":
+            await bot.answer_callback_query(call.id)
+            await bot.reply_to(call.message, text=f"Canceled")
+        if cb in g_config["tags"]:
+            dltask = DownloadTask(link, cb)
+            await bot.answer_callback_query(call.id)
+            msg = await bot.edit_message_text(f"{link}\nWill be downloaded in: {dltask.path}", chat_id=call.message.chat.id, message_id=call.message.id)
+            worker = Worker(dltask, msg)
+            await asyncio.gather(worker.call_tdl(bot))
+
+    asyncio.run(bot.polling())

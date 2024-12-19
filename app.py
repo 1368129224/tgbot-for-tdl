@@ -14,6 +14,7 @@ from telebot.async_telebot import AsyncTeleBot
 # global
 CFG_PATH = 'tdl_bot_config.toml'
 RE_STR = r'\x1b\[[0-9;]*[a-zA-Z]'
+PROGRESS_INTERVAL = 10
 KEYBOARD_MAX_ROW_LEN = 6
 KEYBOARD_MAX_COL_LEN = 4
 KEYBOARD_MAX_ONE_PAGE_LEN = KEYBOARD_MAX_ROW_LEN * KEYBOARD_MAX_COL_LEN
@@ -148,6 +149,7 @@ class Worker():
                 f"/usr/local/bin/tdl --debug dl -u {self.task.link} --proxy {self.task.proxy_url} -d {self.task.path}",
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
             i = 0
+            j = 0
             while True:
                 if not proc.stdout:
                     logger.error(f'Call create_subprocess_shell() failed!')
@@ -162,11 +164,19 @@ class Worker():
                         if "done!" in line:
                             logger.info(f'Link: {self.task.link}')
                             logger.info(f'Download {line.split("...")[-1].strip()}')
-                            await bot.edit_message_text(f'{self.task.link}\n Downlaod {line.split("...")[-1].strip()}', chat_id=self.msg.chat.id, message_id=self.msg.id)
-                        if not line.startswith("CPU") and not line.startswith("[") and not line.startswith("All") and line != '':
-                            process = line.split('...')[1].split()[0]
-                            speed = line.split("...")[-1].split(";")[-1].strip().rstrip("]")
-                            logger.debug(f'Downloading: {process + " " + speed}')
+                            await bot.edit_message_text(f'{self.task.link} tag: {self.task.tag}\nDownlaod {line.split("...")[-1].strip()}', chat_id=self.msg.chat.id, message_id=self.msg.id)
+                        try:
+                            if not line.startswith("CPU") and not line.startswith("[") and not line.startswith("All") and line != '':
+                                process = line.split('...')[1].split()[0]
+                                speed = line.split("...")[-1].split(";")[-1].strip().rstrip("]")
+                                if j == PROGRESS_INTERVAL:
+                                    await bot.edit_message_text(f'{self.task.link} tag: {self.task.tag}\nDownloading: {process + " " + speed}', chat_id=self.msg.chat.id, message_id=self.msg.id)
+                                    j = 0
+                                else:
+                                    j = j + 1
+                                logger.debug(f'Downloading: {process + " " + speed}')
+                        except Exception as e:
+                            logger.error(f'Error occurred while processing line: {line}. Error: {e}')
                 else:
                     break
             await proc.wait()
@@ -222,7 +232,7 @@ if __name__ == "__main__":
         if cb in g_config["tags"]:
             dltask = DownloadTask(link, cb)
             await bot.answer_callback_query(call.id)
-            msg = await bot.edit_message_text(f"{link}\nWill be downloaded in: {dltask.path}", chat_id=call.message.chat.id, message_id=call.message.id)
+            msg = await bot.edit_message_text(f"{link}\nWill be downloaded into: {dltask.path}", chat_id=call.message.chat.id, message_id=call.message.id)
             worker = Worker(dltask, msg)
             await asyncio.gather(worker.call_tdl(bot))
 

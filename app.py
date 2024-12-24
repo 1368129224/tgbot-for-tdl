@@ -146,7 +146,7 @@ class Worker():
     async def call_tdl(self, bot):
         async with Worker.lock:
             proc = await asyncio.create_subprocess_shell(
-                f"/usr/local/bin/tdl --debug dl -u {self.task.link} --proxy {self.task.proxy_url} -d {self.task.path}",
+                f"/usr/local/bin/tdl --debug dl -u {self.task.link} --proxy {self.task.proxy_url} -d {self.task.path} --reconnect-timeout 0",
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
             i = 0
             j = 0
@@ -176,7 +176,7 @@ class Worker():
                                     j = j + 1
                                 logger.debug(f'Downloading: {process + " " + speed}')
                         except Exception as e:
-                            logger.error(f'Error occurred while processing line: {line}. Error: {e}')
+                            logger.error(f'stdout: {line}\nerror: {e}')
                 else:
                     break
             await proc.wait()

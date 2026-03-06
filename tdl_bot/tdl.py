@@ -14,16 +14,81 @@ class DownloadTask:
     proxy_url: Optional[str]
 
 
-def build_tdl_command(tdl_path: str, task: DownloadTask, extra_args: str = "") -> str:
-    # Build command while staying backward compatible with previous behavior.
-    # Only pass --proxy when proxy is configured.
-    proxy_part = f" --proxy {task.proxy_url}" if task.proxy_url else ""
-    extra = f" {extra_args.strip()}" if extra_args and extra_args.strip() else ""
-    # reconnect-timeout 0 preserved
-    return (
-        f"{tdl_path} --debug dl -u {task.link}"
-        f"{proxy_part} -d {task.path} --reconnect-timeout 0{extra}"
-    )
+def build_download_args(
+    *,
+    task: DownloadTask,
+    debug: bool,
+    proxy_url: Optional[str],
+    reconnect_timeout: str,
+    limit: int,
+    threads: int,
+    delay: str,
+    group: bool,
+    skip_same: bool,
+    rewrite_ext: bool,
+    desc: bool,
+    takeout: bool,
+    include: list[str],
+    exclude: list[str],
+    template: str,
+    serve: bool,
+) -> list[str]:
+    """Build argv for `tdl download`.
+
+    Defaults should keep consistent with tdl defaults; we only include flags when enabled
+    or when set explicitly by configuration.
+    """
+    args: list[str] = []
+
+    if debug:
+        args.append("--debug")
+
+    # Global flags
+    if delay and delay != "0s":
+        args += ["--delay", str(delay)]
+    if limit and int(limit) != 2:  # tdl default is 2
+        args += ["--limit", str(int(limit))]
+    if threads and int(threads) != 4:  # tdl default is 4
+        args += ["--threads", str(int(threads))]
+
+    if proxy_url:
+        args += ["--proxy", str(proxy_url)]
+
+    # keep legacy behavior default reconnect-timeout=0 unless user changes
+    if reconnect_timeout is not None:
+        args += ["--reconnect-timeout", str(reconnect_timeout)]
+
+    # Subcommand
+    args.append("download")
+
+    # Download flags
+    args += ["--url", task.link]
+    args += ["--dir", task.path]
+
+    if group:
+        args.append("--group")
+    if skip_same:
+        args.append("--skip-same")
+    if rewrite_ext:
+        args.append("--rewrite-ext")
+    if desc:
+        args.append("--desc")
+    if takeout:
+        args.append("--takeout")
+
+    if include:
+        # tdl expects repeated flag or comma-separated; help suggests -i mp4,mp3
+        args += ["--include", ",".join(include)]
+    if exclude:
+        args += ["--exclude", ",".join(exclude)]
+
+    if template:
+        args += ["--template", template]
+
+    if serve:
+        args.append("--serve")
+
+    return args
 
 
 async def stream_lines(proc: asyncio.subprocess.Process) -> AsyncIterator[str]:

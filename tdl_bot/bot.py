@@ -13,7 +13,7 @@ from .constants import (
     PROGRESS_INTERVAL,
     KEYBOARD_MAX_ROW_LEN,
 )
-from .tdl import DownloadTask, build_tdl_command, parse_progress, parse_done
+from .tdl import DownloadTask, build_download_args, parse_progress, parse_done
 
 
 @dataclass
@@ -65,8 +65,8 @@ class RetryButtons:
 
 
 class Worker:
-    # Legacy behavior: single-thread downloads
-    lock = asyncio.Lock()
+    # Default: single-thread downloads, but configurable via semaphore
+    semaphore: asyncio.Semaphore | None = None
 
     def __init__(self, ctx: BotContext, task: DownloadTask, msg):
         import uuid
@@ -85,18 +85,33 @@ class Worker:
         Requirements:
         - if download fails, send error cause to user + provide retry button
         """
-        async with Worker.lock:
+        sem = Worker.semaphore or asyncio.Semaphore(1)
+        async with sem:
             os.makedirs(self.task.path, exist_ok=True)
 
-            cmd = build_tdl_command(
-                tdl_path=self.ctx.cfg.tdl_path,
+            args = build_download_args(
                 task=self.task,
-                extra_args=self.ctx.cfg.tdl_extra_args,
+                debug=bool(self.ctx.cfg.debug),
+                proxy_url=self.ctx.cfg.proxy_url,
+                reconnect_timeout=str(self.ctx.cfg.tdl_reconnect_timeout),
+                limit=int(self.ctx.cfg.tdl_limit),
+                threads=int(self.ctx.cfg.tdl_threads),
+                delay=str(self.ctx.cfg.tdl_delay),
+                group=bool(self.ctx.cfg.download_group),
+                skip_same=bool(self.ctx.cfg.download_skip_same),
+                rewrite_ext=bool(self.ctx.cfg.download_rewrite_ext),
+                desc=bool(self.ctx.cfg.download_desc),
+                takeout=bool(self.ctx.cfg.download_takeout),
+                include=list(self.ctx.cfg.download_include),
+                exclude=list(self.ctx.cfg.download_exclude),
+                template=str(self.ctx.cfg.download_template),
+                serve=bool(self.ctx.cfg.download_serve),
             )
-            self.ctx.logger.info("%s Run tdl: %s", self._pfx(), cmd)
+            self.ctx.logger.info("%s Run tdl: %s %s", self._pfx(), self.ctx.cfg.tdl_path, " ".join(args))
 
-            proc = await asyncio.create_subprocess_shell(
-                cmd,
+            proc = await asyncio.create_subprocess_exec(
+                self.ctx.cfg.tdl_path,
+                *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
@@ -239,8 +254,22 @@ def register_handlers(ctx: BotContext) -> None:
             f"download_path: {ctx.cfg.download_path}\n"
             f"proxy_url: {ctx.cfg.proxy_url}\n"
             f"tags: {ctx.cfg.tags}\n"
-            f"tdl_path: {ctx.cfg.tdl_path}\n"
-            f"tdl_extra_args: {ctx.cfg.tdl_extra_args}"
+            f"bot.max_concurrency: {ctx.cfg.bot_max_concurrency}\n"
+            f"tdl.path: {ctx.cfg.tdl_path}\n"
+            f"tdl.limit: {ctx.cfg.tdl_limit}\n"
+            f"tdl.threads: {ctx.cfg.tdl_threads}\n"
+            f"tdl.delay: {ctx.cfg.tdl_delay}\n"
+            f"tdl.reconnect_timeout: {ctx.cfg.tdl_reconnect_timeout}\n"
+            f"download.group: {ctx.cfg.download_group}\n"
+            f"download.skip_same: {ctx.cfg.download_skip_same}\n"
+            f"download.rewrite_ext: {ctx.cfg.download_rewrite_ext}\n"
+            f"download.include: {ctx.cfg.download_include}\n"
+            f"download.exclude: {ctx.cfg.download_exclude}\n"
+            f"download.template: {ctx.cfg.download_template}\n"
+            f"download.takeout: {ctx.cfg.download_takeout}\n"
+            f"download.desc: {ctx.cfg.download_desc}\n"
+            f"download.serve: {ctx.cfg.download_serve}\n"
+            f"upload.enabled: {ctx.cfg.upload_enabled}"
         )
         await bot.send_message(message.chat.id, text)
 

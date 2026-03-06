@@ -13,6 +13,11 @@ def main() -> None:
     bot = build_bot(cfg, logger)
     ctx = BotContext(cfg=cfg, bot=bot, logger=logger)
 
+    # Concurrency control (default 1)
+    from .bot import Worker
+
+    Worker.semaphore = asyncio.Semaphore(int(cfg.bot_max_concurrency))
+
     asyncio.run(run_polling(ctx))
 
 

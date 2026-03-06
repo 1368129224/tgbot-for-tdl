@@ -59,6 +59,9 @@ def generate_default_config(path: str = CFG_PATH) -> None:
 
 
 def load_config(path: str = CFG_PATH) -> BotConfig:
+    # Allow overriding config path in container/managed environments
+    path = os.environ.get("TDL_BOT_CONFIG", path)
+
     if not os.path.isfile(path):
         # preserve legacy behavior
         generate_default_config(path)

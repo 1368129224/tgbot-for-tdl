@@ -31,6 +31,21 @@ class TagButtons:
     def _btn(self, text: str, callback_data: str) -> InlineKeyboardButton:
         return InlineKeyboardButton(text=text, callback_data=f"{callback_data}#{self.link}")
 
+
+class RetryButtons:
+    def __init__(self, link: str, tag: str):
+        self.link = link
+        self.tag = tag
+
+    def build(self) -> InlineKeyboardMarkup:
+        markup = InlineKeyboardMarkup()
+        markup.row_width = 2
+        markup.add(
+            InlineKeyboardButton(text="retry", callback_data=f"retry|{self.tag}#{self.link}"),
+            InlineKeyboardButton(text="cancel", callback_data=f"cancel#{self.link}"),
+        )
+        return markup
+
     def build(self) -> InlineKeyboardMarkup:
         markup = InlineKeyboardMarkup()
         markup.row_width = KEYBOARD_MAX_ROW_LEN
@@ -54,11 +69,22 @@ class Worker:
     lock = asyncio.Lock()
 
     def __init__(self, ctx: BotContext, task: DownloadTask, msg):
+        import uuid
+
         self.ctx = ctx
         self.task = task
         self.msg = msg
+        self.task_id = uuid.uuid4().hex[:8]
+
+    def _pfx(self) -> str:
+        return f"task={self.task_id} link={self.task.link} tag={self.task.tag}"
 
     async def call_tdl(self) -> None:
+        """Run a tdl download and provide progress + final result to user.
+
+        Requirements:
+        - if download fails, send error cause to user + provide retry button
+        """
         async with Worker.lock:
             os.makedirs(self.task.path, exist_ok=True)
 
@@ -67,7 +93,7 @@ class Worker:
                 task=self.task,
                 extra_args=self.ctx.cfg.tdl_extra_args,
             )
-            self.ctx.logger.info("Run tdl: %s", cmd)
+            self.ctx.logger.info("%s Run tdl: %s", self._pfx(), cmd)
 
             proc = await asyncio.create_subprocess_shell(
                 cmd,
@@ -77,8 +103,16 @@ class Worker:
 
             i = 0
             j = 0
+            last_lines: list[str] = []
+
             if not proc.stdout:
-                self.ctx.logger.error("create_subprocess_shell() returned no stdout")
+                self.ctx.logger.error("%s create_subprocess_shell() returned no stdout", self._pfx())
+                await self.ctx.bot.edit_message_text(
+                    f"{self.task.link} tag: {self.task.tag}\nFailed: no stdout from subprocess",
+                    chat_id=self.msg.chat.id,
+                    message_id=self.msg.id,
+                    reply_markup=RetryButtons(self.task.link, self.task.tag).build(),
+                )
                 return
 
             while True:
@@ -87,11 +121,15 @@ class Worker:
                     break
                 line = line_b.decode(errors="replace")
 
+                # keep a small tail for error reporting
+                last_lines.append(line)
+                if len(last_lines) > 30:
+                    last_lines = last_lines[-30:]
+
                 i += 1
                 done = parse_done(line)
                 if done:
-                    self.ctx.logger.info("Link: %s", self.task.link)
-                    self.ctx.logger.info("Download done: %s", done)
+                    self.ctx.logger.info("%s Download done: %s", self._pfx(), done)
                     await self.ctx.bot.edit_message_text(
                         f"{self.task.link} tag: {self.task.tag}\nDownlaod {done}",
                         chat_id=self.msg.chat.id,
@@ -117,23 +155,55 @@ class Worker:
                         j = 0
                     else:
                         j += 1
-                    self.ctx.logger.debug("Downloading: %s %s", process, speed)
+                    self.ctx.logger.debug("%s Downloading: %s %s", self._pfx(), process, speed)
                 except Exception as e:
-                    self.ctx.logger.error("stdout: %s\nerror: %s", line, e)
+                    self.ctx.logger.error("%s stdout: %s\nerror: %s", self._pfx(), line, e)
 
             await proc.wait()
-            self.ctx.logger.info("Download returncode %s", proc.returncode)
+            rc = proc.returncode
+            self.ctx.logger.info("%s Download returncode %s", self._pfx(), rc)
+
+            if rc and rc != 0:
+                # best-effort error summary for user
+                from .tdl import summarize_error
+
+                summary = summarize_error(last_lines)
+                await self.ctx.bot.edit_message_text(
+                    f"{self.task.link} tag: {self.task.tag}\nFailed (rc={rc}): {summary}",
+                    chat_id=self.msg.chat.id,
+                    message_id=self.msg.id,
+                    reply_markup=RetryButtons(self.task.link, self.task.tag).build(),
+                )
+                return
 
 
 def extract_links(text: str) -> list[str]:
+    """Extract Telegram message links from free-form text.
+
+    Improvements over legacy split():
+    - regex-based extraction
+    - strips common trailing punctuation
+    - de-duplicates while preserving order
+    """
+    import re
+
     if not text:
         return []
-    # Keep legacy behavior: split by whitespace; accept t.me links
-    links: list[str] = []
-    for token in text.split():
-        if token.startswith("https://t.me/"):
-            links.append(token)
-    return links
+
+    candidates = re.findall(r"https://t\.me/\S+", text)
+
+    def normalize(url: str) -> str:
+        # Strip trailing punctuation that users often paste with
+        return url.rstrip(".,;:!?)\"']>")
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for u in candidates:
+        u = normalize(u)
+        if u and u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
 
 
 def build_bot(cfg: BotConfig, logger) -> AsyncTeleBot:
@@ -187,6 +257,25 @@ def register_handlers(ctx: BotContext) -> None:
         if cb == "cancel":
             await bot.answer_callback_query(call.id)
             await bot.reply_to(call.message, text="Canceled")
+            return
+
+        # Retry button encodes tag as: retry|<tag>#<link>
+        if cb.startswith("retry|"):
+            tag = cb.split("|", 1)[1]
+            if tag in ctx.cfg.tags:
+                await bot.answer_callback_query(call.id)
+                path = os.path.join(ctx.cfg.download_path, tag)
+                dltask = DownloadTask(link=link, tag=tag, path=path, proxy_url=ctx.cfg.proxy_url)
+                msg = await bot.edit_message_text(
+                    f"{link}\nWill be downloaded into: {dltask.path}",
+                    chat_id=call.message.chat.id,
+                    message_id=call.message.id,
+                )
+                worker = Worker(ctx, dltask, msg)
+                await asyncio.gather(worker.call_tdl())
+            else:
+                await bot.answer_callback_query(call.id)
+                await bot.reply_to(call.message, text=f"Unknown tag: {tag}")
             return
 
         if cb in ctx.cfg.tags:

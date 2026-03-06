@@ -76,6 +76,30 @@ def parse_done(line: str) -> Optional[str]:
         return "done!"
 
 
+def summarize_error(lines: list[str]) -> str:
+    """Summarize probable error cause from tdl output."""
+    if not lines:
+        return "no output"
+
+    # Prefer last non-empty lines
+    tail = [ln.strip() for ln in lines if ln and ln.strip()]
+    tail = tail[-10:]
+
+    # Heuristics
+    for ln in reversed(tail):
+        low = ln.lower()
+        if "error" in low or "fatal" in low or "panic" in low:
+            return ln[:300]
+        if "unauthorized" in low or "forbidden" in low:
+            return ln[:300]
+        if "timeout" in low:
+            return ln[:300]
+        if "no such file" in low or "not found" in low:
+            return ln[:300]
+
+    return tail[-1][:300] if tail else "unknown error"
+
+
 async def run_tdl(cmd: str) -> tuple[int, list[str]]:
     proc = await asyncio.create_subprocess_shell(
         cmd,

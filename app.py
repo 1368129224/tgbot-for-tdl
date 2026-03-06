@@ -1,9 +1,9 @@
-"""Backward-compatible entrypoint.
+"""向后兼容的入口文件（app.py）。
 
-Historically this project ran from a single app.py.
-The refactor keeps app.py as a thin wrapper so existing deployments keep working.
+历史上本项目只有一个 app.py 作为入口。
+重构后，我们保留 app.py 作为薄封装，避免已有部署脚本/教程失效。
 
-Run:
+运行：
     python app.py
 """
 

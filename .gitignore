@@ -1,6 +1,10 @@
 .vscode/
 tdl_bot_config.toml
 
+tdl_bot.log
+tdl_bot.log.*
+app.py.bak
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

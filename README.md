@@ -1,19 +1,12 @@
 <h1 align="center">telegram bot for tdl</h1>
 
 <p align="center">
-A telegram bot for downloading files via <a href="https://github.com/iyear/tdl">tdl</a>.
+A Telegram bot for downloading files via <a href="https://github.com/iyear/tdl">tdl</a>.
 </p>
 
 <p align="center">
 English | <a href="README_zh.md">简体中文</a>
 </p>
-
-<p align="center">
-<img src="https://img.shields.io/github/license/1368129224/tgbot-for-tdl?style=flat-square" alt="">
-<img src="https://img.shields.io/github/v/release/1368129224/tgbot-for-tdl?color=red&amp;style=flat-square" alt="">
-</p>
-
-Read [document](https://github.com/1368129224/tgbot-for-tdl/wiki) to setup.
 
 ## Screenshot
 
@@ -23,25 +16,76 @@ Read [document](https://github.com/1368129224/tgbot-for-tdl/wiki) to setup.
 
 ## Features
 
-- Download files to different paths according to the selected tag.
-- Supports multiple messages to be downloaded in one message and single-threaded download the files.
+- Download files into different subfolders based on the selected tag.
+- Supports multiple message links in a single message.
+- Single-thread download (legacy behavior; avoids Telegram rate / bandwidth issues).
 
+## Requirements
 
-## TODO
+- Python 3.10+
+- A Telegram bot token
+- `tdl` installed (default path `/usr/local/bin/tdl`) or configure `tdl_path` in `tdl_bot_config.toml`
 
-- [ ] Change config via tgbot.
-- [x] Support multiple message links in one message and downloads them simultaneously.
+## Quick start (local)
 
-## Known issues
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-- Unable to do multiple downloads at the same time.
+# first run will generate a default config and exit
+python app.py
 
-## Thanks to
+# edit config
+nano tdl_bot_config.toml
 
-- [tdl](https://github.com/iyear/tdl): Telegram Downloader, but more than a downloader.
-- [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/index.html): TeleBot is synchronous and asynchronous implementation of [Telegram Bot API](https://core.telegram.org/bots/api).
-- [tomlkit](https://github.com/python-poetry/tomlkit): Style-preserving TOML library for Python.
+# run
+python app.py
+```
 
-## LICENSE
+## Configuration (`tdl_bot_config.toml`)
 
-AGPL-3.0 License
+Key options:
+
+- `bot_token`: Telegram bot token
+- `download_path`: base download directory
+- `tags`: tag list shown as buttons
+- `proxy_url`: optional (used for both bot and tdl)
+- `tdl_path`: optional (default `/usr/local/bin/tdl`)
+- `tdl_extra_args`: optional extra args appended to the tdl command
+
+## Docker
+
+This repo includes a Dockerfile that downloads a pinned `tdl` release.
+
+```bash
+docker build -t tdl-bot .
+
+# create folders
+mkdir -p downloads
+
+# first time: create config locally (or copy from template)
+python app.py
+
+# run
+docker run -d --name tdl-bot \
+  -v "$(pwd)/tdl_bot_config.toml:/app/tdl_bot_config.toml:ro" \
+  -v "$(pwd)/downloads:/downloads" \
+  --restart unless-stopped \
+  tdl-bot
+```
+
+Or use docker compose:
+
+```bash
+docker compose up -d --build
+```
+
+## Troubleshooting
+
+- If the bot exits immediately on first run: it probably generated a default config and exited. Edit `tdl_bot_config.toml` and run again.
+- If downloads fail: verify `tdl` exists in container/host and that the link is valid.
+
+## License
+
+AGPL-3.0

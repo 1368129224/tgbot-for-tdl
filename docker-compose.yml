@@ -1,0 +1,17 @@
+services:
+  tdl-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TDL_VERSION: "0.16.0"
+    container_name: tdl-bot
+    restart: unless-stopped
+    volumes:
+      # Mount config into container working dir (legacy path)
+      - ./tdl_bot_config.toml:/app/tdl_bot_config.toml:ro
+      # Download output
+      - ./downloads:/downloads
+    environment:
+      # You can override download_path in toml, but this is a convenient default
+      - TZ=Asia/Shanghai

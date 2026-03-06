@@ -1,45 +1,89 @@
 <h1 align="center">telegram bot for tdl</h1>
 
 <p align="center">
-📥 Telegram Downloader, but more than a downloader
+一个基于 <a href="https://github.com/iyear/tdl">tdl</a> 的 Telegram 下载机器人。
 </p>
 
 <p align="center">
 <a href="README.md">English</a> | 简体中文
 </p>
 
-<p align="center">
-<img src="https://img.shields.io/github/license/1368129224/tgbot-for-tdl?style=flat-square" alt="">
-<img src="https://img.shields.io/github/v/release/1368129224/tgbot-for-tdl?color=red&amp;style=flat-square" alt="">
-<img src="https://img.shields.io/github/downloads/1368129224/tgbot-for-tdl/total?style=flat-square" alt="">
-</p>
+## 截图
 
-> [!IMPORTANT]
-> 中文文档可能落后于英文文档，如果有问题请先查看英文文档。
-> 请使用英文发起新的 Issue, 以便于追踪和搜索
-
-阅读 [文档](https://github.com/1368129224/tgbot-for-tdl/wiki) 进行初始化.
+<figure style="display: flex; justify-content: space-between;">
+  <img src="img/screenrecord.gif" alt="Screenshot" width="886">
+</figure>
 
 ## 特性
 
-- 根据选择的标签将文件下载到不同路径
-- 支持一条消息中包含多条待下载的消息链接，并单线程下载所有文件
+- 根据选择的 tag 将文件下载到不同子目录。
+- 支持一条消息包含多条链接。
+- 单线程下载（保持历史行为，避免带宽/限流问题）。
 
-## 计划
+## 依赖
 
-- [ ] 通过bot修改配置文件
-- [x] 支持一条消息包含多条链接，解析并同时进行下载
+- Python 3.10+
+- Telegram bot token
+- 已安装 `tdl`（默认路径 `/usr/local/bin/tdl`），或者在配置里设置 `tdl_path`
 
-## 已知问题
+## 本地快速开始
 
-- 无法同时下载多个文件
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-## 感谢
+# 第一次运行会生成默认配置文件并退出
+python app.py
 
-- [tdl](https://github.com/iyear/tdl): Telegram Downloader, but more than a downloader.
-- [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/index.html): TeleBot is synchronous and asynchronous implementation of [Telegram Bot API](https://core.telegram.org/bots/api).
-- [tomlkit](https://github.com/python-poetry/tomlkit): Style-preserving TOML library for Python.
+# 编辑配置
+nano tdl_bot_config.toml
+
+# 再次运行
+python app.py
+```
+
+## 配置说明（`tdl_bot_config.toml`）
+
+常用字段：
+
+- `bot_token`：机器人 token
+- `download_path`：下载根目录
+- `tags`：按钮里的 tag 列表
+- `proxy_url`：可选（bot 与 tdl 都会使用）
+- `tdl_path`：可选（默认 `/usr/local/bin/tdl`）
+- `tdl_extra_args`：可选，追加到 tdl 命令末尾的参数
+
+## Docker
+
+项目提供 Dockerfile，会在构建时下载固定版本的 `tdl`。
+
+```bash
+docker build -t tdl-bot .
+
+mkdir -p downloads
+
+# 第一次可以在宿主机先生成配置文件
+python app.py
+
+docker run -d --name tdl-bot \
+  -v "$(pwd)/tdl_bot_config.toml:/app/tdl_bot_config.toml:ro" \
+  -v "$(pwd)/downloads:/downloads" \
+  --restart unless-stopped \
+  tdl-bot
+```
+
+或使用 docker compose：
+
+```bash
+docker compose up -d --build
+```
+
+## 排错
+
+- 如果第一次运行立刻退出：可能是生成了默认配置文件并退出。编辑 `tdl_bot_config.toml` 后再运行。
+- 下载失败：检查 tdl 是否可用、链接是否正确。
 
 ## 协议
 
-AGPL-3.0 License
+AGPL-3.0

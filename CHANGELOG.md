@@ -5,6 +5,37 @@
 
 ## 2026-03-06 13:49 CST — 结构化对齐 tdl download 特性 + 可配置并发 + 上传占位
 
+## 2026-03-06 14:17 CST — 全量代码中文注释 + 修复按钮回归
+
+### 目标
+
+- 为项目主要 Python 代码添加中文注释/中文模块说明，便于维护与二次开发。
+- 修复一次重构过程中引入的按钮类回归（`TagButtons.build` 丢失、`RetryButtons` 重复定义）。
+
+### 改动摘要
+
+- 为 `app.py` 与 `tdl_bot/*.py` 增加中文模块 docstring、关键逻辑中文注释。
+- 修复 `tdl_bot/bot.py`：
+  - 恢复 `TagButtons.build()`
+  - `RetryButtons` 仅保留单一 `build()`
+  - 保持现有行为与接口不变。
+
+### 验证方法
+
+```bash
+python -m py_compile app.py tdl_bot/*.py
+```
+
+### 回滚
+
+```bash
+git checkout AI-refactor
+# 回退到上一个提交
+# git reset --hard <previous_commit>
+```
+
+---
+
 ### 目标
 
 - 将 `tdl download` 的常用特性（group/skip-same/rewrite-ext/include/exclude/template/takeout 等）结构化进入配置文件，并由代码生成 argv 调用 tdl。

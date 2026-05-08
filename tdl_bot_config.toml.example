@@ -1,0 +1,15 @@
+# *** TDL telegram bot ***
+# TDL: https://github.com/iyear/tdl
+
+debug = "False"
+enable_ipv6 = false
+bot_token = ""
+download_path = "/downloads"
+proxy_url = ""
+
+# To use socks proxy, need to install extra python package:
+# pip install python-telegram-bot[socks]
+# and set socks proxy:
+# proxy_url = "socks5://user:pass@host:port"
+
+tags = ["tag1", "tag2", "tag3"]

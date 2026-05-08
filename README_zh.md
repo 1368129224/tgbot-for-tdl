@@ -57,25 +57,47 @@ uv run python app.py
 
 项目提供 Dockerfile，会在构建时下载固定版本的 `tdl`。
 
+`tdl` 使用 Telegram 客户端会话下载文件，首次使用需要登录。有两种方式：
+
+### 方式一：在宿主机登录，再启动容器
+
 ```bash
-docker build -t tdl-bot .
+# 在宿主机登录 tdl（会话保存到 ~/.tdl/）
+tdl login
 
-mkdir -p downloads
+# 创建目录
+mkdir -p downloads tdl-data
 
-# 第一次可以在宿主机先生成配置文件
-python app.py
+# 把宿主机的会话拷贝到项目目录
+cp -r ~/.tdl/* tdl-data/
 
+# 使用 docker compose 启动
+docker compose up -d --build
+```
+
+### 方式二：在容器内登录
+
+```bash
+mkdir -p downloads tdl-data
+docker compose up -d --build
+
+# 进入容器执行登录（交互式输入验证码）
+docker exec -it tdl-bot tdl login
+
+# 会话持久化在 ./tdl-data（挂载为 /root/.tdl）
+```
+
+会话数据通过 `tdl-data` 目录挂载，容器重建后无需重新登录。
+
+### 手动 docker run
+
+```bash
 docker run -d --name tdl-bot \
   -v "$(pwd)/tdl_bot_config.toml:/app/tdl_bot_config.toml:ro" \
   -v "$(pwd)/downloads:/downloads" \
+  -v "$(pwd)/tdl-data:/root/.tdl" \
   --restart unless-stopped \
   tdl-bot
-```
-
-或使用 docker compose：
-
-```bash
-docker compose up -d --build
 ```
 
 ## 排错

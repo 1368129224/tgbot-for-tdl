@@ -57,28 +57,46 @@ Key options:
 
 This repo includes a Dockerfile that downloads a pinned `tdl` release.
 
+### Option 1: Login on host, then run in container
+
 ```bash
-docker build -t tdl-bot .
+# login tdl on host first (session saved to ~/.tdl/)
+tdl login
 
 # create folders
-mkdir -p downloads
+mkdir -p downloads tdl-data
 
-# first time: create config locally (or copy from template)
-python app.py
+# copy host session to project data dir
+cp -r ~/.tdl/* tdl-data/
 
-# run
+# run with docker compose
+docker compose up -d --build
+```
+
+### Option 2: Login inside the container
+
+```bash
+mkdir -p downloads tdl-data
+docker compose up -d --build
+
+# exec into container to login interactively
+docker exec -it tdl-bot tdl login
+
+# session is persisted in ./tdl-data (mounted as /root/.tdl)
+```
+
+### Manual docker run
+
+```bash
 docker run -d --name tdl-bot \
   -v "$(pwd)/tdl_bot_config.toml:/app/tdl_bot_config.toml:ro" \
   -v "$(pwd)/downloads:/downloads" \
+  -v "$(pwd)/tdl-data:/root/.tdl" \
   --restart unless-stopped \
   tdl-bot
 ```
 
-Or use docker compose:
-
-```bash
-docker compose up -d --build
-```
+The `tdl-data` volume persists the tdl login session across container restarts.
 
 ## Troubleshooting
 

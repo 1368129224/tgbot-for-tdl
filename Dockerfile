@@ -14,9 +14,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Install tdl (Linux x86_64) - version pin via build arg
-ARG TDL_VERSION=0.16.0
+ARG TDL_VERSION=0.20.2
 RUN set -eux; \
-  curl -fsSL -o /tmp/tdl.tar.gz "https://github.com/iyear/tdl/releases/download/v${TDL_VERSION}/tdl_${TDL_VERSION}_linux_amd64.tar.gz"; \
+  curl -fsSL -o /tmp/tdl.tar.gz "https://github.com/iyear/tdl/releases/download/v${TDL_VERSION}/tdl_Linux_64bit.tar.gz"; \
   tar -xzf /tmp/tdl.tar.gz -C /usr/local/bin tdl; \
   chmod +x /usr/local/bin/tdl; \
   rm -f /tmp/tdl.tar.gz

@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        TDL_VERSION: "0.16.0"
+        TDL_VERSION: "0.20.2"
     container_name: tdl-bot
     restart: unless-stopped
     volumes:
@@ -12,6 +12,8 @@ services:
       - ./tdl_bot_config.toml:/app/tdl_bot_config.toml:ro
       # Download output
       - ./downloads:/downloads
+      # Persist tdl session (login state) across container restarts
+      - ./tdl-data:/root/.tdl
     environment:
       # You can override download_path in toml, but this is a convenient default
       - TZ=Asia/Shanghai

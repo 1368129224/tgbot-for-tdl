@@ -309,6 +309,13 @@ class Worker:
                     return
 
                 if rc and rc != 0:
+                    self.ctx.logger.warning(
+                        "%s Last output:\n%s",
+                        self._pfx(),
+                        "".join(last_lines[-10:]),
+                    )
+
+                if rc and rc != 0:
                     from .tdl import summarize_error
 
                     summary = summarize_error(last_lines)
@@ -627,12 +634,15 @@ async def run_polling(ctx: BotContext) -> None:
     register_handlers(ctx)
 
     # 向 Telegram 注册命令菜单（用户输入 / 时可见）
-    await ctx.bot.set_my_commands([
-        BotCommand("start", "Start the bot"),
-        BotCommand("help", "Display help message"),
-        BotCommand("config", "Edit bot settings"),
-        BotCommand("status", "Show active downloads"),
-        BotCommand("show_config", "Display bot config"),
-    ])
+    try:
+        await ctx.bot.set_my_commands([
+            BotCommand("start", "Start the bot"),
+            BotCommand("help", "Display help message"),
+            BotCommand("config", "Edit bot settings"),
+            BotCommand("status", "Show active downloads"),
+            BotCommand("show_config", "Display bot config"),
+        ])
+    except Exception as e:
+        ctx.logger.warning("Failed to set bot commands: %s", e)
 
     await ctx.bot.polling()

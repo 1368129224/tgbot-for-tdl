@@ -85,7 +85,7 @@ def generate_default_config(path: str = CFG_PATH) -> None:
 
     doc.add(tomlkit.comment("This proxy will be used for both telegram bot and tdl"))
     doc.add(tomlkit.comment("If you don't need proxy, please remove the proxy_url keyword"))
-    doc.add("proxy_url", tomlkit.item(None))
+    doc.add("proxy_url", tomlkit.item(""))
     doc.add(tomlkit.nl())
 
     doc.add(tomlkit.comment("Tags used as download subfolders"))
@@ -175,7 +175,7 @@ def load_config(path: str = CFG_PATH) -> BotConfig:
         return list(v or [])
 
     cfg = BotConfig(
-        debug=bool(data.get("debug", False)),
+        debug=str(data.get("debug", False)).lower() in ("true", "1", "yes"),
         enable_ipv6=bool(data.get("enable_ipv6", False)),
         bot_token=str(data.get("bot_token", "") or ""),
         download_path=str(data.get("download_path", "") or ""),

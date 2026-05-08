@@ -64,39 +64,37 @@ This repo includes a Dockerfile that downloads a pinned `tdl` release.
 tdl login
 
 # create folders and copy config
-mkdir -p downloads tdl-data
+mkdir -p downloads
 cp docker-compose.yml.example docker-compose.yml
-cp -r ~/.tdl/* tdl-data/
 
-# run with docker compose
+# run with docker compose (mounts ~/.tdl into container)
 docker compose up -d --build
 ```
 
 ### Option 2: Login inside the container
 
 ```bash
-mkdir -p downloads tdl-data
+mkdir -p downloads
 cp docker-compose.yml.example docker-compose.yml
 docker compose up -d --build
 
 # exec into container to login interactively
 docker exec -it tdl-bot tdl login
-
-# session is persisted in ./tdl-data (mounted as /root/.tdl)
 ```
 
 ### Manual docker run
 
 ```bash
 docker run -d --name tdl-bot \
+  --network host \
   -v "$(pwd)/tdl_bot_config.toml:/app/tdl_bot_config.toml:ro" \
   -v "$(pwd)/downloads:/downloads" \
-  -v "$(pwd)/tdl-data:/root/.tdl" \
+  -v "$HOME/.tdl:/root/.tdl" \
   --restart unless-stopped \
   tdl-bot
 ```
 
-The `tdl-data` volume persists the tdl login session across container restarts.
+The `~/.tdl` mount shares the host's tdl login session with the container.
 
 ## Troubleshooting
 

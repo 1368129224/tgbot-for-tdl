@@ -26,6 +26,6 @@ COPY tdl_bot ./tdl_bot
 COPY app.py ./app.py
 
 # Runtime: mount config + downloads
-ENV TDL_BOT_CONFIG=/data/tdl_bot_config.toml
+ENV TDL_BOT_CONFIG=/app/tdl_bot_config.toml
 
 CMD ["/app/.venv/bin/python", "app.py"]

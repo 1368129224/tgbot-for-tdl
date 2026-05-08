@@ -66,18 +66,17 @@ uv run python app.py
 tdl login
 
 # 创建目录，复制配置
-mkdir -p downloads tdl-data
+mkdir -p downloads
 cp docker-compose.yml.example docker-compose.yml
-cp -r ~/.tdl/* tdl-data/
 
-# 使用 docker compose 启动
+# 启动容器（自动挂载 ~/.tdl/）
 docker compose up -d --build
 ```
 
 ### 方式二：在容器内登录
 
 ```bash
-mkdir -p downloads tdl-data
+mkdir -p downloads
 cp docker-compose.yml.example docker-compose.yml
 docker compose up -d --build
 
@@ -87,15 +86,16 @@ docker exec -it tdl-bot tdl login
 # 会话持久化在 ./tdl-data（挂载为 /root/.tdl）
 ```
 
-会话数据通过 `tdl-data` 目录挂载，容器重建后无需重新登录。
+会话数据通过 `~/.tdl` 目录挂载，容器重建后无需重新登录。
 
 ### 手动 docker run
 
 ```bash
 docker run -d --name tdl-bot \
+  --network host \
   -v "$(pwd)/tdl_bot_config.toml:/app/tdl_bot_config.toml:ro" \
   -v "$(pwd)/downloads:/downloads" \
-  -v "$(pwd)/tdl-data:/root/.tdl" \
+  -v "$HOME/.tdl:/root/.tdl" \
   --restart unless-stopped \
   tdl-bot
 ```

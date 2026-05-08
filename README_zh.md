@@ -65,10 +65,9 @@ uv run python app.py
 # 在宿主机登录 tdl（会话保存到 ~/.tdl/）
 tdl login
 
-# 创建目录
+# 创建目录，复制配置
 mkdir -p downloads tdl-data
-
-# 把宿主机的会话拷贝到项目目录
+cp docker-compose.yml.example docker-compose.yml
 cp -r ~/.tdl/* tdl-data/
 
 # 使用 docker compose 启动
@@ -79,6 +78,7 @@ docker compose up -d --build
 
 ```bash
 mkdir -p downloads tdl-data
+cp docker-compose.yml.example docker-compose.yml
 docker compose up -d --build
 
 # 进入容器执行登录（交互式输入验证码）

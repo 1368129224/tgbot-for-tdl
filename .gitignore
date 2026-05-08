@@ -1,5 +1,6 @@
 .vscode/
 tdl_bot_config.toml
+docker-compose.yml
 
 tdl_bot.log
 tdl_bot.log.*

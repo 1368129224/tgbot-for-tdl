@@ -63,10 +63,9 @@ This repo includes a Dockerfile that downloads a pinned `tdl` release.
 # login tdl on host first (session saved to ~/.tdl/)
 tdl login
 
-# create folders
+# create folders and copy config
 mkdir -p downloads tdl-data
-
-# copy host session to project data dir
+cp docker-compose.yml.example docker-compose.yml
 cp -r ~/.tdl/* tdl-data/
 
 # run with docker compose
@@ -77,6 +76,7 @@ docker compose up -d --build
 
 ```bash
 mkdir -p downloads tdl-data
+cp docker-compose.yml.example docker-compose.yml
 docker compose up -d --build
 
 # exec into container to login interactively

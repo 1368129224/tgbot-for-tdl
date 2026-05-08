@@ -8,10 +8,9 @@
 - tdl 的输出格式可能随着版本变化而变化，因此解析逻辑应尽量“宽松 + 容错”。
 """
 
-import asyncio
 import re
 from dataclasses import dataclass
-from typing import Optional, AsyncIterator
+from typing import Optional
 
 from .constants import ANSI_ESCAPE_RE
 
@@ -116,23 +115,11 @@ def build_download_args(
     return args
 
 
-async def stream_lines(proc: asyncio.subprocess.Process) -> AsyncIterator[str]:
-    """异步逐行读取子进程 stdout。"""
-    if not proc.stdout:
-        return
-
-    while True:
-        line = await proc.stdout.readline()
-        if not line:
-            break
-        yield line.decode(errors="replace")
-
-
 def parse_progress(line: str) -> Optional[tuple[str, str]]:
     """从 tdl 的输出行中解析进度信息。
 
     返回：
-    - (process, speed) 或 None
+    - (progress, speed) 或 None
 
     说明：
     - tdl 输出可能包含 ANSI 颜色码，需要先清理
@@ -203,22 +190,3 @@ def summarize_error(lines: list[str]) -> str:
             return ln[:300]
 
     return tail[-1][:300] if tail else "unknown error"
-
-
-# 兼容保留：早期版本用 shell 方式运行 tdl。
-# 目前主流程已改为 exec argv，这个函数仅用于调试/历史用途。
-async def run_tdl(cmd: str) -> tuple[int, list[str]]:
-    """（历史接口）通过 shell 执行命令并收集输出。"""
-
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-    )
-
-    lines: list[str] = []
-    async for line in stream_lines(proc):
-        lines.append(line)
-
-    rc = await proc.wait()
-    return rc, lines

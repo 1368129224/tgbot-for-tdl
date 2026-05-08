@@ -1,15 +1,17 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim
 
-# Optional: install curl to fetch tdl binary
+# Install uv and curl for tdl binary
+COPY --from=ghcr.io/astral-sh/uv:0.10.6 /uv /uvx /bin/
+
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install python deps
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install python deps via uv
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 # Install tdl (Linux x86_64) - version pin via build arg
 ARG TDL_VERSION=0.16.0
@@ -24,10 +26,6 @@ COPY tdl_bot ./tdl_bot
 COPY app.py ./app.py
 
 # Runtime: mount config + downloads
-# - /data/tdl_bot_config.toml
-# - /data/downloads
 ENV TDL_BOT_CONFIG=/data/tdl_bot_config.toml
 
-# Default command expects config file at /app/tdl_bot_config.toml (legacy)
-# We'll recommend bind-mount to /app/tdl_bot_config.toml.
-CMD ["python", "app.py"]
+CMD ["/app/.venv/bin/python", "app.py"]

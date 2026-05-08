@@ -1,0 +1,17 @@
+[project]
+name = "tdl-bot"
+version = "0.1.0"
+description = "A Telegram bot for downloading files via tdl"
+readme = "README.md"
+license = "AGPL-3.0"
+requires-python = ">=3.10"
+dependencies = [
+    "pyTelegramBotAPI==4.22.0",
+    "aiohttp",
+    "tomlkit==0.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "pylint>=4.0.5",
+]

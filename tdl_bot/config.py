@@ -218,6 +218,28 @@ def load_config(path: str = CFG_PATH) -> BotConfig:
     return cfg
 
 
+def save_config(cfg: BotConfig, path: str = CFG_PATH) -> None:
+    """将当前配置写回 TOML 文件（保留注释和格式）。"""
+
+    path = os.environ.get("TDL_BOT_CONFIG", path)
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            doc = tomlkit.parse(f.read())
+    except Exception:
+        # 文件不存在或解析失败，重新生成
+        doc = tomlkit.document()
+
+    # 更新顶层字段
+    doc["enable_ipv6"] = cfg.enable_ipv6
+    doc["download_path"] = cfg.download_path
+    doc["proxy_url"] = cfg.proxy_url
+    doc["tags"] = cfg.tags
+
+    with open(path, "w", encoding="utf-8") as f:
+        tomlkit.dump(doc, f)
+
+
 def validate_config(cfg: BotConfig) -> None:
     """校验配置并做少量自愈（例如创建下载目录）。"""
 

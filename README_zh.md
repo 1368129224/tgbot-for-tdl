@@ -29,18 +29,17 @@
 ## 本地快速开始
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# 安装 uv: https://docs.astral.sh/uv/getting-started/installation/
+uv sync
 
 # 第一次运行会生成默认配置文件并退出
-python app.py
+uv run python app.py
 
 # 编辑配置
 nano tdl_bot_config.toml
 
 # 再次运行
-python app.py
+uv run python app.py
 ```
 
 ## 配置说明（`tdl_bot_config.toml`）

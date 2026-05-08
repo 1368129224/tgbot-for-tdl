@@ -29,18 +29,17 @@ English | <a href="README_zh.md">简体中文</a>
 ## Quick start (local)
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# install uv: https://docs.astral.sh/uv/getting-started/installation/
+uv sync
 
 # first run will generate a default config and exit
-python app.py
+uv run python app.py
 
 # edit config
 nano tdl_bot_config.toml
 
 # run
-python app.py
+uv run python app.py
 ```
 
 ## Configuration (`tdl_bot_config.toml`)

@@ -400,11 +400,12 @@ def register_handlers(ctx: BotContext) -> None:
 
     @bot.message_handler(commands=["show_config"])
     async def show_config(message):
+        proxy = "***" if ctx.cfg.proxy_url else "not set"
         text = (
             f"debug: {ctx.cfg.debug}\n"
             f"enable_ipv6: {ctx.cfg.enable_ipv6}\n"
             f"download_path: {ctx.cfg.download_path}\n"
-            f"proxy_url: {ctx.cfg.proxy_url}\n"
+            f"proxy: {proxy}\n"
             f"tags: {ctx.cfg.tags}\n"
             f"bot.max_concurrency: {ctx.cfg.bot_max_concurrency}\n"
             f"tdl.path: {ctx.cfg.tdl_path}\n"

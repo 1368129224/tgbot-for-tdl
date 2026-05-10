@@ -15,4 +15,5 @@ services:
       # Persist tdl session (login state) across container restarts
       - ~/.tdl:/root/.tdl
     environment:
-      - TZ=Asia/Shanghai
+      # Set your timezone, e.g. Asia/Shanghai, America/New_York
+      # - TZ=Asia/Shanghai

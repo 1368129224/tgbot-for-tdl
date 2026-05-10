@@ -55,7 +55,7 @@ uv run python app.py
 
 ## Docker
 
-项目提供 Dockerfile，会在构建时下载固定版本的 `tdl`。
+预构建镜像：`ghcr.io/1368129224/tgbot-for-tdl:main`
 
 `tdl` 使用 Telegram 客户端会话下载文件，首次使用需要登录。有两种方式：
 

@@ -1,22 +1,18 @@
 services:
   tdl-bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        TDL_VERSION: "0.20.2"
+    image: ghcr.io/1368129224/tgbot-for-tdl:main
+    # To build locally instead, comment out the image line above and uncomment:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: tdl-bot
     restart: unless-stopped
     # Use host network so 127.0.0.1 proxy in config reaches the host
     network_mode: host
     volumes:
-      # Mount config into container working dir (legacy path)
       - ./tdl_bot_config.toml:/app/tdl_bot_config.toml:ro
-      # Download output
       - ./downloads:/downloads
       # Persist tdl session (login state) across container restarts
-      # Use the host's tdl session directory (~/.tdl)
       - ~/.tdl:/root/.tdl
     environment:
-      # You can override download_path in toml, but this is a convenient default
       - TZ=Asia/Shanghai

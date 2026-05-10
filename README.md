@@ -55,7 +55,7 @@ Key options:
 
 ## Docker
 
-This repo includes a Dockerfile that downloads a pinned `tdl` release.
+Pre-built image: `ghcr.io/1368129224/tgbot-for-tdl:main`
 
 ### Option 1: Login on host, then run in container
 
